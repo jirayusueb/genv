@@ -1,6 +1,6 @@
 {
   "name": "@jirayusueb/genv",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Environment variable manager for monorepos with shared variable support",
   "type": "module",
   "main": "./dist/index.cjs",

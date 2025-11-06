@@ -1,0 +1,11 @@
+{
+  "name": "root-example",
+  "version": "1.0.0",
+  "description": "Example demonstrating genv in root-level setup",
+  "private": true,
+  "scripts": {
+    "genv:apply": "genv --apply --config genv.config.yaml",
+    "genv:all": "genv --all --config genv.config.yaml"
+  }
+}
+

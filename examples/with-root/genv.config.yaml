@@ -1,0 +1,65 @@
+# genv Configuration for Root-Level Setup
+# This demonstrates a simple project without monorepo structure
+# All apps are at the root level
+
+# Shared variables
+shared:
+  variables:
+    DATABASE_HOST: localhost
+    DATABASE_PORT: "5432"
+    API_URL: https://api.example.com
+    REDIS_HOST: localhost
+
+# Apps at root level
+apps:
+  # Single app - specifying path: . to generate .env files in root
+  app:
+    path: .
+    environments:
+      local:
+        variables:
+          NODE_ENV: development
+          PORT:
+            value: "3000"
+            comment: Application server port
+          DATABASE_URL:
+            value: postgres://user:pass@${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/local_db
+            comment: Local PostgreSQL database connection
+          REDIS_URL:
+            value: redis://${shared:REDIS_HOST}:6379
+            comment: Local Redis connection
+
+      development:
+        variables:
+          NODE_ENV: development
+          PORT: "3000"
+          DATABASE_URL:
+            value: postgres://user:pass@${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/dev_db
+            comment: Development database
+          REDIS_URL:
+            value: redis://${shared:REDIS_HOST}:6379
+            comment: Redis cache connection
+          API_URL:
+            value: ${shared:API_URL}
+            comment: External API endpoint
+
+      production:
+        variables:
+          # Simple format
+          NODE_ENV: production
+          PORT: "3000"
+
+          # Extended format with comment
+          DATABASE_URL:
+            value: postgres://user:pass@${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/prod_db
+            comment: Production database connection
+
+          # Extended format
+          REDIS_URL:
+            value: redis://${shared:REDIS_HOST}:6379
+            comment: Redis cache connection
+
+          # Extended format
+          API_URL:
+            value: ${shared:API_URL}
+            comment: Production API endpoint

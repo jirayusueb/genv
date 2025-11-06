@@ -1,0 +1,28 @@
+# Test config with both formats
+shared:
+  variables:
+    API_URL: https://api.example.com
+
+apps:
+  test:
+    path: .
+    environments:
+      production:
+        variables:
+          # Simple format (string value)
+          NODE_ENV: production
+
+          # Extended format (object with value, comment, type)
+          DATABASE_URL:
+            value: postgres://localhost:5432/db
+            comment: Production database connection
+            type: string
+
+          # Extended format with only value and comment
+          API_URL:
+            value: ${shared:API_URL}
+            comment: Backend API endpoint
+
+          # Simple format
+          PORT: "3000"
+

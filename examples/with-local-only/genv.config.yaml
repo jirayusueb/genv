@@ -1,0 +1,40 @@
+# genv Configuration for Local-Only Environment Example
+# This demonstrates a simple setup with only local environment variables
+
+# Shared variables
+shared:
+  variables:
+    DATABASE_HOST: localhost
+    DATABASE_PORT: "5432"
+    REDIS_HOST: localhost
+
+# Apps with local environment only
+apps:
+  # Simple backend app - local only
+  backend:
+    path: apps/backend
+    environments:
+      local:
+        variables:
+          NODE_ENV: development
+          DATABASE_URL: postgres://user:pass@${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/local_db
+          REDIS_URL: redis://${shared:REDIS_HOST}:6379
+          PORT: "3000"
+        comments:
+          DATABASE_URL: "Local PostgreSQL database"
+          REDIS_URL: "Local Redis instance"
+          PORT: "API server port"
+
+  # Simple frontend app - local only
+  frontend:
+    path: apps/frontend
+    environments:
+      local:
+        variables:
+          NODE_ENV: development
+          VITE_API_URL: http://localhost:3000
+          VITE_PORT: "5173"
+        comments:
+          VITE_API_URL: "Backend API URL"
+          VITE_PORT: "Vite dev server port"
+

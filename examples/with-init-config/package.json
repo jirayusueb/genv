@@ -1,0 +1,11 @@
+{
+  "name": "init-config-example",
+  "version": "1.0.0",
+  "description": "Example demonstrating genv --init usage",
+  "private": true,
+  "scripts": {
+    "init": "genv --init --config genv.config.yaml",
+    "apply": "genv --apply --config genv.config.yaml"
+  }
+}
+

@@ -1,0 +1,11 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Generated files
+*.env
+
+# Config file (optional - you might want to commit this)
+# genv.config.yaml
+

@@ -1,0 +1,118 @@
+# genv Configuration for Monorepo Example
+# This demonstrates a typical monorepo setup with multiple apps
+
+# Shared variables that can be referenced across all apps
+shared:
+  variables:
+    DATABASE_HOST: localhost
+    DATABASE_PORT: "5432"
+    API_URL: https://api.example.com
+    REDIS_HOST: localhost
+    REDIS_PORT: "6379"
+    JWT_SECRET: your-secret-key-here
+
+# Apps in the monorepo
+apps:
+  # Frontend app
+  frontend:
+    # Custom path for all frontend env files
+    path: apps/frontend
+
+    environments:
+      local:
+        variables:
+          NODE_ENV: development
+          VITE_API_URL: http://localhost:3000
+          VITE_APP_NAME: My App (Local)
+          VITE_DEBUG: "true"
+          VITE_PORT: "5173"
+        comments:
+          NODE_ENV: "Node.js environment mode"
+          VITE_API_URL: "Backend API URL for local development"
+          VITE_APP_NAME: "Application display name"
+          VITE_DEBUG: "Enable debug logging"
+          VITE_PORT: "Vite development server port"
+
+      development:
+        variables:
+          NODE_ENV: development
+          VITE_API_URL: ${shared:API_URL}
+          VITE_APP_NAME: My App (Dev)
+          VITE_DEBUG: "true"
+          VITE_PORT: "5173"
+        comments:
+          VITE_API_URL: "Backend API URL from shared config"
+
+      production:
+        variables:
+          NODE_ENV: production
+          VITE_API_URL: ${shared:API_URL}
+          VITE_APP_NAME: My App
+          VITE_DEBUG: "false"
+          VITE_PORT: "5173"
+        comments:
+          VITE_DEBUG: "Debug disabled in production"
+
+  # Backend app
+  backend:
+    # Custom path for all backend env files
+    path: apps/backend
+
+    environments:
+      local:
+        variables:
+          NODE_ENV: development
+          DATABASE_URL: postgres://user:pass@localhost:5432/mydb_local
+          REDIS_URL: redis://localhost:6379
+          API_PORT: "3000"
+          JWT_SECRET: ${shared:JWT_SECRET}
+          LOG_LEVEL: debug
+          CORS_ORIGIN: http://localhost:5173
+        comments:
+          DATABASE_URL: "PostgreSQL database connection string"
+          REDIS_URL: "Redis cache connection string"
+          API_PORT: "HTTP server port"
+          JWT_SECRET: "Secret key for JWT token signing"
+          LOG_LEVEL: "Logging verbosity level"
+          CORS_ORIGIN: "Allowed CORS origin for frontend"
+
+      development:
+        # Generates: apps/backend/.env.development
+        NODE_ENV: development
+        DATABASE_URL: postgres://user:pass@${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/mydb_dev
+        REDIS_URL: redis://${shared:REDIS_HOST}:${shared:REDIS_PORT}
+        API_PORT: "3000"
+        JWT_SECRET: ${shared:JWT_SECRET}
+        LOG_LEVEL: debug
+        CORS_ORIGIN: ${shared:API_URL}
+
+      production:
+        # Generates: apps/backend/.env
+        NODE_ENV: production
+        DATABASE_URL: postgres://user:pass@${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/mydb_prod
+        REDIS_URL: redis://${shared:REDIS_HOST}:${shared:REDIS_PORT}
+        API_PORT: "3000"
+        JWT_SECRET: ${shared:JWT_SECRET}
+        LOG_LEVEL: warn
+        CORS_ORIGIN: ${shared:API_URL}
+
+  # Mobile app (no custom path, uses auto-detection)
+  mobile:
+    environments:
+      local:
+        # Generates: packages/mobile/.env.local (if auto-detected)
+        API_BASE_URL: http://localhost:3000
+        APP_ENV: local
+        ENABLE_LOGGING: "true"
+
+      development:
+        # Generates: packages/mobile/.env.development
+        API_BASE_URL: ${shared:API_URL}
+        APP_ENV: development
+        ENABLE_LOGGING: "true"
+
+      production:
+        # Generates: packages/mobile/.env
+        API_BASE_URL: ${shared:API_URL}
+        APP_ENV: production
+        ENABLE_LOGGING: "false"

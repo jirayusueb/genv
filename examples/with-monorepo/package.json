@@ -1,0 +1,11 @@
+{
+  "name": "monorepo-example",
+  "version": "1.0.0",
+  "description": "Example monorepo demonstrating genv usage",
+  "private": true,
+  "scripts": {
+    "genv:apply": "genv --apply",
+    "genv:all": "genv --all"
+  }
+}
+

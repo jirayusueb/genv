@@ -1,0 +1,9 @@
+{
+  "name": "@monorepo/mobile",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "expo start",
+    "build": "expo build"
+  }
+}
+

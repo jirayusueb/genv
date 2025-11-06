@@ -1,54 +1,57 @@
-import { join } from "node:path";
 import { err, ok, type Result } from "neverthrow";
-import type { EnvConfig } from "@/types";
+import { VARIABLE_REF_PATTERN } from "@/constants/regex.constant";
+import type { EnvConfig } from "@/models/env-config.model";
+import type {
+  AppEnvironmentValue,
+  EnvField,
+  RawValue,
+  VariablesRecord,
+  VariableValue,
+} from "@/types";
+import { determineFilePath } from "@/utils/path.util";
+import {
+  isBoolean,
+  isEnvFieldExtend,
+  isNumber,
+  isString,
+} from "@/utils/type.util";
 
-// TODO: Performance - Consider compiling regex once at module level
-// The regex pattern is currently defined as a constant, which is good.
-// However, if we need to reuse it with different flags, consider using RegExp constructor.
-const VARIABLE_REF_PATTERN = /\$\{shared:([^}]+)\}/g;
-
-// TODO: Improve error handling - Support multiple missing variables
-// Currently only reports the first missing variable. Consider collecting all missing
-// variables and reporting them together for better user experience.
 function resolveVariable(
   value: string,
-  sharedVars: Record<string, string | number | boolean>
+  sharedVars: EnvField
 ): Result<string, Error> {
   let resolved = value;
-  let hasError: Error | null = null;
+  const missingVars: string[] = [];
 
   resolved = value.replace(VARIABLE_REF_PATTERN, (_match, varName) => {
     const resolvedVar = sharedVars[varName];
     if (resolvedVar === undefined) {
-      hasError = new Error(`Shared variable '${varName}' not found`);
-      return value; // Return original value if error occurs
+      // Collect missing variable names (avoid duplicates)
+      if (!missingVars.includes(varName)) {
+        missingVars.push(varName);
+      }
+      return _match; // Return original match if variable is missing
     }
     // Convert shared variable to string for interpolation
     return String(resolvedVar);
   });
 
-  if (hasError) {
-    return err(hasError);
+  if (missingVars.length > 0) {
+    const errorMessage =
+      missingVars.length === 1
+        ? `Shared variable '${missingVars[0]}' not found`
+        : `Shared variables not found: ${missingVars.map((v) => `'${v}'`).join(", ")}`;
+    return err(new Error(errorMessage));
   }
 
   return ok(resolved);
 }
 
-type VariableValue =
-  | string
-  | number
-  | boolean
-  | { value: string | number | boolean; comment?: string; type?: string };
-
 function extractVariableValue(varValue: VariableValue): {
-  value: string | number | boolean;
+  value: RawValue;
   comment?: string;
 } {
-  if (
-    typeof varValue === "string" ||
-    typeof varValue === "number" ||
-    typeof varValue === "boolean"
-  ) {
+  if (isString(varValue) || isNumber(varValue) || isBoolean(varValue)) {
     return { value: varValue };
   }
   return {
@@ -57,45 +60,85 @@ function extractVariableValue(varValue: VariableValue): {
   };
 }
 
-function convertValueToString(value: string | number | boolean): string {
-  if (typeof value === "string") {
-    return value;
+function formatVariableValue(
+  resolvedValue: string,
+  originalStringValue: string,
+  rawValue: RawValue
+): string {
+  // If the resolved value contains shared variable references, it's already a string
+  if (resolvedValue !== originalStringValue) {
+    return resolvedValue;
   }
-  if (typeof value === "number") {
-    return String(value);
+  // No shared variable resolution, format based on original type
+  if (isNumber(rawValue) || isBoolean(rawValue)) {
+    return String(rawValue);
   }
-  if (typeof value === "boolean") {
-    return String(value);
-  }
-  // TODO: Edge case - Fallback for unexpected types (line 64)
-  // This should never be reached due to TypeScript types, but serves as a defensive fallback.
-  // Consider if this can be removed or if additional type narrowing is needed.
-  return String(value);
+  return resolvedValue;
 }
 
-// TODO: Refactor - Extract value formatting logic to separate function
-// The value formatting logic (lines 105-114) is complex and could be extracted to a function
-// like `formatVariableValue(resolvedValue: string, originalValue: string | number | boolean, rawValue: string | number | boolean): string`
-// to improve readability and testability.
+function collectMissingVariables(
+  errors: Array<{ variable: string; message: string }>
+): Set<string> {
+  const allMissingVars = new Set<string>();
+  for (const error of errors) {
+    // Extract variable names from error messages
+    const varMatch = error.message.match(/'([^']+)'/g);
+    if (varMatch) {
+      for (const match of varMatch) {
+        const varName = match.replace(/'/g, "");
+        allMissingVars.add(varName);
+      }
+    }
+  }
+  return allMissingVars;
+}
+
+function createErrorForMissingVariables(
+  errors: Array<{ variable: string; message: string }>
+): Error {
+  if (errors.length === 1) {
+    const firstError = errors[0];
+    if (!firstError) {
+      return new Error("Unknown error occurred");
+    }
+    return new Error(
+      `Failed to resolve variable for ${firstError.variable}: ${firstError.message}`
+    );
+  }
+
+  const allMissingVars = collectMissingVariables(errors);
+  const missingVarsList = Array.from(allMissingVars)
+    .map((v) => `'${v}'`)
+    .join(", ");
+  const variableNames = errors.map((e) => e.variable).join(", ");
+  const errorMessage =
+    allMissingVars.size === 1
+      ? `Shared variable ${missingVarsList} not found in variables: ${variableNames}`
+      : `Shared variables not found (${missingVarsList}) in variables: ${variableNames}`;
+
+  return new Error(errorMessage);
+}
+
 function generateEnvContent(
-  variables: Record<string, VariableValue>,
-  sharedVars: Record<string, string | number | boolean>
+  variables: VariablesRecord,
+  sharedVars: EnvField
 ): Result<string, Error> {
   const lines: string[] = [];
+  const errors: Array<{ variable: string; message: string }> = [];
 
   for (const [key, varValue] of Object.entries(variables)) {
     const { value: rawValue, comment: inlineComment } =
       extractVariableValue(varValue);
 
-    // Convert to string for variable resolution (shared vars are always strings)
-    const stringValue = convertValueToString(rawValue);
+    const stringValue = String(rawValue);
     const resolvedResult = resolveVariable(stringValue, sharedVars);
     if (resolvedResult.isErr()) {
-      return err(
-        new Error(
-          `Failed to resolve variable for ${key}: ${resolvedResult.error.message}`
-        )
-      );
+      // Collect error but continue processing other variables
+      errors.push({
+        variable: key,
+        message: resolvedResult.error.message,
+      });
+      continue;
     }
 
     // Add comment if available (from inline comment in variable object)
@@ -103,108 +146,38 @@ function generateEnvContent(
       lines.push(`# ${inlineComment}`);
     }
 
-    // Format the value: numbers and booleans don't need quotes
-    // If the resolved value contains shared variable references, it's already a string
-    // Otherwise, use the original type to determine formatting
-    let formattedValue: string;
-    if (resolvedResult.value !== stringValue) {
-      // Shared variable was resolved, use the resolved string as-is
-      formattedValue = resolvedResult.value;
-    } else if (typeof rawValue === "number" || typeof rawValue === "boolean") {
-      // No shared variable resolution, format based on original type
-      formattedValue = String(rawValue);
-    } else {
-      formattedValue = resolvedResult.value;
-    }
-
+    const formattedValue = formatVariableValue(
+      resolvedResult.value,
+      stringValue,
+      rawValue
+    );
     lines.push(`${key}=${formattedValue}`);
+  }
+
+  // Report all errors together if any were found
+  if (errors.length > 0) {
+    return err(createErrorForMissingVariables(errors));
   }
 
   return ok(`${lines.join("\n")}\n`);
 }
 
-function getEnvironmentVariables(
-  env:
-    | Record<string, string | number | boolean>
-    | {
-        variables: Record<string, VariableValue>;
-        path?: string;
-      }
-): Record<string, VariableValue> {
+function getEnvironmentVariables(env: AppEnvironmentValue): VariablesRecord {
   // Check if it's the new format with variables key
   if ("variables" in env && typeof env.variables === "object") {
     return env.variables;
   }
   // Legacy format: flat object (can be string, number, or boolean)
-  return env as Record<string, VariableValue>;
+  return env as VariablesRecord;
 }
 
-function getEnvironmentConfig(
-  env:
-    | Record<string, string | number | boolean>
-    | {
-        variables: Record<string, VariableValue>;
-        path?: string;
-      }
-): { path?: string } {
-  // Check if it's the new format with path
-  if ("path" in env && typeof env === "object" && "path" in env) {
-    const pathValue = env.path;
-    // TODO: Edge case - Non-string path values (line 141)
-    // The path should always be a string according to the type, but we defensively check.
-    // Consider if this type narrowing is necessary or if the type system can be improved.
+function getEnvironmentConfig(env: AppEnvironmentValue): { path?: string } {
+  if (isEnvFieldExtend(env)) {
     return {
-      path: typeof pathValue === "string" ? pathValue : undefined,
+      path: env.path,
     };
   }
   return {};
-}
-
-// TODO: Refactor - Extract to shared utility module
-// This function is duplicated in cli.ts. Consider creating a shared utils module
-// to avoid code duplication and ensure consistency.
-function determineFilename(envName: string): string {
-  // Special handling for environment names
-  if (envName === "local") {
-    return ".env.local";
-  }
-  if (envName === "production") {
-    return ".env";
-  }
-  return `.env.${envName}`;
-}
-
-type PathConfig = {
-  appName: string;
-  envName: string;
-  app: { path?: string };
-  envConfig: { path?: string };
-  outputDir: string;
-  rootDir: string;
-};
-
-// TODO: Refactor - Unify path resolution logic with cli.ts
-// This function has similar logic to `determineOutputPath` in cli.ts. Consider creating
-// a shared utility module with a unified path resolution function that handles both cases.
-// This would reduce duplication and ensure consistent behavior across the codebase.
-function determineFilePath(config: PathConfig): string {
-  // Determine filename based on environment name
-  const filename = determineFilename(config.envName);
-
-  // Determine path: env-level > app-level > default
-  if (config.envConfig.path) {
-    return config.envConfig.path.startsWith("/")
-      ? join(config.envConfig.path, filename)
-      : join(config.rootDir, config.envConfig.path, filename);
-  }
-
-  if (config.app.path) {
-    return config.app.path.startsWith("/")
-      ? join(config.app.path, filename)
-      : join(config.rootDir, config.app.path, filename);
-  }
-
-  return join(config.outputDir, `${config.appName}.${config.envName}.env`);
 }
 
 export function generateEnvFile(
@@ -213,27 +186,23 @@ export function generateEnvFile(
   environment: string,
   _outputPath: string
 ): Result<string, Error> {
-  const sharedVars = config.shared?.variables ?? {};
-  const app = config.apps[appName];
+  const sharedVars = config.getSharedVariables();
+  const app = config.getApp(appName);
 
   if (!app) {
     return err(
       new Error(
-        `App '${appName}' not found in config. Available apps: ${Object.keys(
-          config.apps
-        ).join(", ")}`
+        `App '${appName}' not found in config. Available apps: ${config.getAppNames().join(", ")}`
       )
     );
   }
 
-  const env = app.environments[environment];
+  const env = config.getEnvironment(appName, environment);
 
   if (!env) {
     return err(
       new Error(
-        `Environment '${environment}' not found for app '${appName}'. Available environments: ${Object.keys(
-          app.environments
-        ).join(", ")}`
+        `Environment '${environment}' not found for app '${appName}'. Available environments: ${config.getEnvironmentNames(appName).join(", ")}`
       )
     );
   }
@@ -248,10 +217,20 @@ export function generateAllEnvFiles(
   rootDir: string = process.cwd()
 ): Result<Array<{ path: string; content: string }>, Error> {
   const files: Array<{ path: string; content: string }> = [];
-  const sharedVars = config.shared?.variables ?? {};
+  const sharedVars = config.getSharedVariables();
 
-  for (const [appName, app] of Object.entries(config.apps)) {
-    for (const [envName, env] of Object.entries(app.environments)) {
+  for (const appName of config.getAppNames()) {
+    const app = config.getApp(appName);
+    if (!app) {
+      continue;
+    }
+
+    for (const envName of config.getEnvironmentNames(appName)) {
+      const env = config.getEnvironment(appName, envName);
+      if (!env) {
+        continue;
+      }
+
       const variables = getEnvironmentVariables(env);
       const envConfig = getEnvironmentConfig(env);
 

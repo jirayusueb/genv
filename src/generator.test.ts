@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { generateAllEnvFiles, generateEnvFile } from "./generator";
-import type { EnvConfig } from "./types";
+import { EnvConfig } from "./models/env-config.model";
+import type { EnvConfig as EnvConfigType } from "./types";
 
 describe("generateEnvFile", () => {
-  const baseConfig: EnvConfig = {
+  const baseConfig = EnvConfig.from({
     apps: {
       backend: {
         environments: {
@@ -16,7 +17,7 @@ describe("generateEnvFile", () => {
         },
       },
     },
-  };
+  });
 
   it("should generate env file content for valid config", () => {
     const result = generateEnvFile(
@@ -68,7 +69,7 @@ describe("generateEnvFile", () => {
   });
 
   it("should resolve shared variables", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           API_URL: "https://api.example.com",
@@ -87,7 +88,7 @@ describe("generateEnvFile", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -100,8 +101,8 @@ describe("generateEnvFile", () => {
     }
   });
 
-  it("should return error when shared variable not found", () => {
-    const config: EnvConfig = {
+  it("should return error when single shared variable not found", () => {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           API_URL: "https://api.example.com",
@@ -118,7 +119,7 @@ describe("generateEnvFile", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -130,8 +131,44 @@ describe("generateEnvFile", () => {
     }
   });
 
+  it("should return error with all missing shared variables", () => {
+    const config = EnvConfig.from({
+      shared: {
+        variables: {
+          API_URL: "https://api.example.com",
+        },
+      },
+      apps: {
+        backend: {
+          environments: {
+            local: {
+              variables: {
+                VAR1: "${shared:NOT_FOUND_1}",
+                VAR2: "${shared:NOT_FOUND_2}",
+                VAR3: "value with ${shared:NOT_FOUND_3} and ${shared:NOT_FOUND_1}",
+              },
+            },
+          },
+        },
+      },
+    } as EnvConfigType);
+
+    const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("Shared variables not found");
+      expect(result.error.message).toContain("'NOT_FOUND_1'");
+      expect(result.error.message).toContain("'NOT_FOUND_2'");
+      expect(result.error.message).toContain("'NOT_FOUND_3'");
+      // Should not have duplicates
+      const matches = result.error.message.match(/'NOT_FOUND_1'/g);
+      expect(matches?.length).toBe(1);
+    }
+  });
+
   it("should handle variable with comment", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -146,7 +183,7 @@ describe("generateEnvFile", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -158,7 +195,7 @@ describe("generateEnvFile", () => {
   });
 
   it("should handle variable without comment", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -172,7 +209,7 @@ describe("generateEnvFile", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -184,7 +221,7 @@ describe("generateEnvFile", () => {
   });
 
   it("should handle legacy format (flat object)", () => {
-    const config = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -195,7 +232,7 @@ describe("generateEnvFile", () => {
           },
         },
       },
-    } as unknown as EnvConfig;
+    } as unknown as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -209,7 +246,7 @@ describe("generateEnvFile", () => {
   });
 
   it("should handle multiple shared variable references", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           HOST: "example.com",
@@ -227,7 +264,7 @@ describe("generateEnvFile", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -240,7 +277,7 @@ describe("generateEnvFile", () => {
 
 describe("generateAllEnvFiles", () => {
   it("should generate all env files for all apps and environments", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           API_URL: "https://api.example.com",
@@ -271,7 +308,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -305,7 +342,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should return error when shared variable not found in any env", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           API_URL: "https://api.example.com",
@@ -322,7 +359,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -338,7 +375,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should handle path configuration at env level", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -351,7 +388,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -366,7 +403,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should handle path configuration at app level", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           path: "apps/backend",
@@ -379,7 +416,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -394,7 +431,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should handle absolute paths", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -407,7 +444,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -421,7 +458,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should determine correct filename for local environment", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -433,7 +470,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -448,7 +485,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should determine correct filename for production environment", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -460,7 +497,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -475,7 +512,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should determine correct filename for other environments", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -487,7 +524,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp", "/tmp");
 
@@ -502,7 +539,7 @@ describe("generateAllEnvFiles", () => {
   });
 
   it("should use default path when no path specified", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -514,7 +551,7 @@ describe("generateAllEnvFiles", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateAllEnvFiles(config, "/tmp/output", "/tmp");
 
@@ -531,7 +568,7 @@ describe("generateAllEnvFiles", () => {
 
 describe("type support (number and boolean)", () => {
   it("should handle number type without quotes", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -543,7 +580,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -555,7 +592,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle boolean type without quotes", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -567,7 +604,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -579,7 +616,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle false boolean without quotes", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -591,7 +628,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -603,7 +640,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle mixed types (string, number, boolean)", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -617,7 +654,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -630,7 +667,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle number in shared variables", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           DEFAULT_PORT: 8080,
@@ -647,7 +684,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -658,7 +695,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle boolean in shared variables", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       shared: {
         variables: {
           DEFAULT_DEBUG: true,
@@ -675,7 +712,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -686,7 +723,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle number with object format", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -701,7 +738,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 
@@ -713,7 +750,7 @@ describe("type support (number and boolean)", () => {
   });
 
   it("should handle boolean with object format", () => {
-    const config: EnvConfig = {
+    const config = EnvConfig.from({
       apps: {
         backend: {
           environments: {
@@ -728,7 +765,7 @@ describe("type support (number and boolean)", () => {
           },
         },
       },
-    };
+    } as EnvConfigType);
 
     const result = generateEnvFile(config, "backend", "local", "/tmp/test.env");
 

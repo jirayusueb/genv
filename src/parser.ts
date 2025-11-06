@@ -1,7 +1,9 @@
-import { err, ok, type Result } from "neverthrow";
+import { err, ok, Result } from "neverthrow";
 import { parse as parseYaml } from "yaml";
 import { ZodError } from "zod";
-import { type EnvConfig, EnvConfigSchema } from "@/types";
+import { EnvConfig } from "@/models/env-config.model";
+import type { EnvConfig as EnvConfigType } from "@/types";
+import { EnvConfigSchema } from "@/types";
 
 // TODO: Improve error formatting - Consider adding error codes or structured error info
 // The current error formatting is human-readable but could be enhanced with error codes
@@ -28,24 +30,25 @@ function formatZodError(error: ZodError): string {
 }
 
 function parseYamlSafe(content: string): Result<unknown, Error> {
-  try {
-    const parsed = parseYaml(content);
-    return ok(parsed);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes("YAML")) {
-        return err(new Error(`YAML parsing error: ${error.message}`));
+  return Result.fromThrowable(
+    () => parseYaml(content),
+    (error) => {
+      if (error instanceof Error) {
+        if (error.message.includes("YAML")) {
+          return new Error(`YAML parsing error: ${error.message}`);
+        }
+        return error;
       }
-      return err(error);
+
+      return new Error(String(error));
     }
-    return err(new Error(String(error)));
-  }
+  )();
 }
 
 export function parseConfig(yamlContent: string): Result<EnvConfig, Error> {
   return parseYamlSafe(yamlContent)
     .andThen((parsed) => {
-      if (parsed === null || parsed === undefined) {
+      if (!parsed) {
         return err(new Error("YAML file is empty or invalid"));
       }
 
@@ -55,7 +58,7 @@ export function parseConfig(yamlContent: string): Result<EnvConfig, Error> {
         return err(new Error(formatZodError(validated.error)));
       }
 
-      return ok(validated.data);
+      return ok(EnvConfig.from(validated.data as EnvConfigType));
     })
     .mapErr((error) => {
       // TODO: Edge case - ZodError handling in mapErr (lines 56-57)

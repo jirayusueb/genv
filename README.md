@@ -8,7 +8,9 @@ A tool to generate `.env` files from `genv.config.yaml` with support for monorep
 - ✅ Support for monorepo (multiple apps/packages)
 - ✅ Shared variables across all apps and environments
 - ✅ Variable interpolation using `${shared:VARIABLE_NAME}` syntax
-- ✅ Custom filename and path configuration per app/environment
+- ✅ Custom path configuration per app/environment
+- ✅ Comment annotations in generated .env files
+- ✅ Two variable definition formats (simple and extended)
 - ✅ CLI interface for easy usage
 - ✅ Initialize new config files with `--init`
 
@@ -103,13 +105,13 @@ apps:
         variables:
           # Simple format (string value)
           NODE_ENV: development
-          
+
           # Extended format (object with value, comment, type)
           VITE_API_URL:
             value: ${shared:API_URL}
             comment: Backend API URL from shared config
             type: string
-      
+
       production:
         variables:
           NODE_ENV: production
@@ -120,7 +122,7 @@ apps:
   backend:
     # Optional app-level configuration
     path: apps/backend
-    
+
     environments:
       development:
         variables:
@@ -154,6 +156,7 @@ apps:
 You can define variables in two ways:
 
 **Format 1: Simple (string value)**
+
 ```yaml
 variables:
   NODE_ENV: production
@@ -161,6 +164,7 @@ variables:
 ```
 
 **Format 2: Extended (object with value, comment, type)**
+
 ```yaml
 variables:
   DATABASE_URL:

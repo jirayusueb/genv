@@ -1,11 +1,9 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { runCLI } from "./cli";
 
 async function main() {
-  if (import.meta.main) {
-    const exitCode = await runCLI(process.argv.slice(2));
-    process.exit(exitCode);
-  }
+  const exitCode = await runCLI(process.argv.slice(2));
+  process.exit(exitCode);
 }
 
 main().catch((error) => {

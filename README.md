@@ -100,24 +100,33 @@ apps:
 
     environments:
       development:
-        NODE_ENV: development
-        VITE_API_URL: ${shared:API_URL}
-        # Optional: override filename for this environment
-        # filename: .env.development.local
-        # Optional: override path for this environment
-        # path: apps/frontend
+        variables:
+          # Simple format (string value)
+          NODE_ENV: development
+          
+          # Extended format (object with value, comment, type)
+          VITE_API_URL:
+            value: ${shared:API_URL}
+            comment: Backend API URL from shared config
+            type: string
+      
       production:
-        NODE_ENV: production
-        VITE_API_URL: ${shared:API_URL}
+        variables:
+          NODE_ENV: production
+          VITE_API_URL:
+            value: ${shared:API_URL}
+            comment: Production API endpoint
 
   backend:
     # Optional app-level configuration
-    filename: .env.local
     path: apps/backend
-
+    
     environments:
       development:
-        DATABASE_URL: postgres://${shared:DATABASE_HOST}:5432/mydb
+        variables:
+          DATABASE_URL:
+            value: postgres://${shared:DATABASE_HOST}:5432/mydb
+            comment: Database connection string
 ```
 
 ### Shared Variables

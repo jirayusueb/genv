@@ -24,6 +24,6 @@
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "**/*.test.ts", "**/*.spec.ts"],
   "exclude": ["node_modules", "dist"]
 }

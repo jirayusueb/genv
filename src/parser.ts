@@ -3,7 +3,13 @@ import { parse as parseYaml } from "yaml";
 import { ZodError } from "zod";
 import { type EnvConfig, EnvConfigSchema } from "@/types";
 
+// TODO: Improve error formatting - Consider adding error codes or structured error info
+// The current error formatting is human-readable but could be enhanced with error codes
+// or structured information for programmatic error handling.
 function formatZodError(error: ZodError): string {
+  // TODO: Edge case - ZodError with empty issues array (lines 8-9)
+  // This branch is difficult to trigger in practice as ZodError typically always has issues.
+  // Consider if this defensive check is necessary or if it can be removed.
   if (!error.issues || error.issues.length === 0) {
     return "Validation error: Invalid configuration";
   }
@@ -52,6 +58,10 @@ export function parseConfig(yamlContent: string): Result<EnvConfig, Error> {
       return ok(validated.data);
     })
     .mapErr((error) => {
+      // TODO: Edge case - ZodError handling in mapErr (lines 56-57)
+      // This branch is difficult to trigger as parseYamlSafe wraps errors as Error instances.
+      // A ZodError would only reach here if thrown directly from yaml.parse, which is unlikely.
+      // Consider if this defensive check is necessary or if it can be simplified.
       if (error instanceof ZodError) {
         return new Error(formatZodError(error));
       }

@@ -5,25 +5,38 @@ import { generateAllEnvFiles, generateEnvFile } from "@/generator";
 import { parseConfig } from "@/parser";
 import type { EnvConfig } from "@/types";
 
+// TODO: Improve type safety - Consider extracting EnvConfigType to types.ts
+// This type duplicates logic from types.ts and could be unified for better maintainability.
 type EnvConfigType =
-  | Record<string, string>
+  | Record<string, string | number | boolean>
   | {
       variables: Record<
         string,
-        string | { value: string; comment?: string; type?: string }
+        | string
+        | number
+        | boolean
+        | { value: string | number | boolean; comment?: string; type?: string }
       >;
       path?: string;
     };
 
 function getEnvironmentConfig(env: EnvConfigType): { path?: string } {
   if ("path" in env && typeof env === "object") {
+    const pathValue = env.path;
+    // TODO: Edge case - Non-string path values (line 25)
+    // The path should always be a string according to the type, but we defensively check
+    // because EnvConfigType allows number | boolean in the record values.
+    // Consider if this type narrowing is necessary or if the type system can be improved.
     return {
-      path: env.path,
+      path: typeof pathValue === "string" ? pathValue : undefined,
     };
   }
   return {};
 }
 
+// TODO: Refactor - Extract to shared utility module
+// This function duplicates determineFilename from generator.ts.
+// Consider creating a shared utils module to avoid code duplication.
 function determineFilename(envName: string): string {
   // Special handling for environment names
   if (envName === "local") {
@@ -46,6 +59,10 @@ type PathOptions = {
   rootDir: string;
 };
 
+// TODO: Refactor - Extract path resolution logic to shared utility
+// This function has repetitive path resolution logic (startsWith("/") check and resolve).
+// Consider creating a helper function like `resolvePath(path: string, rootDir: string): string`
+// to reduce duplication and improve maintainability.
 function determineOutputPath(options: PathOptions): string {
   // Determine filename based on environment name
   const filename = determineFilename(options.envName);
@@ -189,6 +206,13 @@ apps:
   }
 }
 
+// TODO: Performance - Consider parallel path checking
+// Currently checks paths sequentially. For monorepos with many apps, parallel checking
+// could improve performance. Also consider caching results to avoid repeated filesystem access.
+// TODO: Refactor - Extract magic strings to constants
+// The directory names "packages", "apps" are hardcoded. Consider extracting them to
+// constants like `const MONOREPO_DIRS = ["packages", "apps"] as const` for better
+// maintainability and configurability.
 async function findAppDirectory(
   appName: string,
   rootDir: string
@@ -227,6 +251,10 @@ async function findAppDirectory(
   return null;
 }
 
+// TODO: Refactor - Extract file writing logic to shared utility
+// The file writing pattern (mkdir + writeFile + console.log) is duplicated in handleApply,
+// handleAll, and handleSingle. Consider creating a helper function like
+// `writeEnvFile(path: string, content: string): Promise<void>` to reduce duplication.
 async function handleApply(
   config: EnvConfig,
   rootDir: string
@@ -297,6 +325,12 @@ async function handleAll(config: EnvConfig): Promise<number> {
   return 0;
 }
 
+// TODO: Refactor - Break down runCLI into smaller functions
+// This function is quite long and handles multiple concerns (argument parsing, config loading,
+// routing to different handlers). Consider extracting:
+// - `setupYargs(args: string[])` for yargs configuration
+// - `loadConfig(configPath: string)` for config loading and parsing
+// - `routeCommand(argv, config)` for routing to appropriate handlers
 export async function runCLI(args: string[]): Promise<number> {
   // args is already processed (process.argv.slice(2)), so don't use hideBin
   const yargsInstance = yargs(args)
@@ -399,6 +433,9 @@ export async function runCLI(args: string[]): Promise<number> {
   return await handleSingle(config, argv.app, argv.env);
 }
 
+// TODO: Refactor - Extract common file writing pattern
+// The file writing logic (mkdir + writeFile + console.log) is duplicated here and in
+// handleApply/handleAll. Consider creating a shared utility function to reduce duplication.
 async function handleSingle(
   config: EnvConfig,
   appName: string,

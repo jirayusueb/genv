@@ -1,6 +1,6 @@
 {
   "name": "@jirayusueb/genv",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Environment variable manager for monorepos with shared variable support",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -40,8 +40,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "bun --hot src/index.ts",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

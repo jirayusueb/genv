@@ -1,224 +1,217 @@
 # genv
 
-A tool to generate `.env` files from `genv.config.yaml` with support for monorepos and shared variables.
+> Environment variable manager for monorepos with shared variable support
 
-## Features
+**genv** is a CLI tool that generates `.env` files from a centralized YAML configuration. Perfect for monorepos where multiple applications need consistent environment variable management with shared configuration.
 
-- ✅ Generate env files from YAML configuration
-- ✅ Support for monorepo (multiple apps/packages)
-- ✅ Shared variables across all apps and environments
-- ✅ Variable interpolation using `${shared:VARIABLE_NAME}` syntax
-- ✅ Custom path configuration per app/environment
-- ✅ Comment annotations in generated .env files
-- ✅ Two variable definition formats (simple and extended)
-- ✅ CLI interface for easy usage
-- ✅ Initialize new config files with `--init`
+## ✨ Features
 
-## Installation
+- 🎯 **Centralized Configuration** - Manage all environment variables in one `genv.config.yaml` file
+- 🔄 **Shared Variables** - Define common variables once and reference them across all apps using `${shared:VARIABLE_NAME}`
+- 📦 **Monorepo Support** - Organize variables by app with automatic directory detection
+- 💬 **Comment Annotations** - Add comments to variables that appear in generated `.env` files
+- 🎨 **Flexible Formats** - Use simple string values or extended objects with comments and type hints
+- 🚀 **Smart Auto-Detection** - Automatically finds app directories in common monorepo structures
+- ⚡ **Zero Runtime** - No dependencies required in your project, works with `npx`
+
+## 📦 Installation
+
+### Using npx (Recommended)
+
+No installation needed! Use directly with npx:
+
+```bash
+npx @jirayusueb/genv --help
+```
+
+### Global Installation
+
+```bash
+npm install -g @jirayusueb/genv
+```
+
+### Local Installation (for development)
 
 ```bash
 bun install
 bun run build
 ```
 
-## Usage
+## 🚀 Quick Start
 
-### Quick Start
+### 1. Initialize Configuration
 
-1. **Initialize a new config file** (first time setup):
-
-```bash
-npx genv --init
-```
-
-This creates a `genv.config.yaml` file with example configuration.
-
-2. **Edit the config file** to match your project structure:
-
-Edit `genv.config.yaml` to define your apps, environments, and variables.
-
-3. **Apply env files** to your monorepo structure:
+Create a new `genv.config.yaml` file:
 
 ```bash
-npx genv --apply
+npx @jirayusueb/genv --init
 ```
 
-This command will:
+This creates a template configuration file with examples.
 
-- Read `genv.config.yaml` from the current directory
-- Auto-detect app directories in common monorepo structures (`packages/`, `apps/`, etc.)
-- Generate `.env.{environment}` files in each app's directory (or use custom `filename`/`path` from config)
-- Fall back to root directory if app directory not found
+### 2. Configure Your Variables
 
-### Other Usage Examples
-
-Generate all env files for all apps and environments:
-
-```bash
-bun run src/index.ts --all
-# or
-npx genv --all
-```
-
-Generate env file for a specific app and environment:
-
-```bash
-bun run src/index.ts --app frontend --env development
-# or
-npx genv --app frontend --env development
-```
-
-### CLI Options
-
-```
--i, --init             Initialize a new genv.config.yaml file
--c, --config <path>    Path to config file (default: genv.config.yaml)
--a, --app <name>       Generate env for specific app
--e, --env <name>       Generate env for specific environment
--A, --all              Generate all env files for all apps and environments
---apply                Apply env files to monorepo structure (auto-detects app directories)
--h, --help             Show this help message
-```
-
-## Configuration
-
-Create a `genv.config.yaml` file in your project root (or use `genv --init` to generate a template):
+Edit `genv.config.yaml` to define your apps, environments, and variables:
 
 ```yaml
-# Shared variables that can be referenced across all apps
 shared:
   variables:
     DATABASE_HOST: localhost
     API_URL: https://api.example.com
 
-# Apps in the monorepo
 apps:
   frontend:
-    # Optional: default output path for all environments
-    # path: apps/frontend
-
     environments:
-      development:
-        variables:
-          # Simple format (string value)
-          NODE_ENV: development
-
-          # Extended format (object with value, comment, type)
-          VITE_API_URL:
-            value: ${shared:API_URL}
-            comment: Backend API URL from shared config
-            type: string
-
       production:
         variables:
           NODE_ENV: production
           VITE_API_URL:
             value: ${shared:API_URL}
             comment: Production API endpoint
+```
 
-  backend:
-    # Optional app-level configuration
-    path: apps/backend
+### 3. Generate Environment Files
 
+Apply the configuration to your monorepo:
+
+```bash
+npx @jirayusueb/genv --apply
+```
+
+This automatically:
+
+- Detects app directories (`packages/`, `apps/`, etc.)
+- Generates `.env` files in the correct locations
+- Uses the right filename based on environment name
+
+## 📖 Usage
+
+### CLI Commands
+
+```bash
+# Initialize a new config file
+npx @jirayusueb/genv --init
+
+# Apply config to monorepo (auto-detects directories)
+npx @jirayusueb/genv --apply
+
+# Generate all env files
+npx @jirayusueb/genv --all
+
+# Generate for specific app and environment
+npx @jirayusueb/genv --app frontend --env production
+
+# Use custom config file
+npx @jirayusueb/genv --config my-config.yaml --apply
+```
+
+### Command Options
+
+| Option            | Alias | Description                                                      |
+| ----------------- | ----- | ---------------------------------------------------------------- |
+| `--init`          | `-i`  | Initialize a new `genv.config.yaml` file                         |
+| `--config <path>` | `-c`  | Path to config file (default: `genv.config.yaml`)                |
+| `--app <name>`    | `-a`  | Generate env for specific app                                    |
+| `--env <name>`    | `-e`  | Generate env for specific environment                            |
+| `--all`           | `-A`  | Generate all env files for all apps and environments             |
+| `--apply`         |       | Apply env files to monorepo structure (auto-detects directories) |
+| `--help`          | `-h`  | Show help message                                                |
+
+## 📝 Configuration
+
+### Basic Structure
+
+```yaml
+# Shared variables (available to all apps)
+shared:
+  variables:
+    DATABASE_HOST: localhost
+    API_URL: https://api.example.com
+
+# App-specific configurations
+apps:
+  frontend:
     environments:
-      development:
+      production:
         variables:
-          DATABASE_URL:
-            value: postgres://${shared:DATABASE_HOST}:5432/mydb
-            comment: Database connection string
+          NODE_ENV: production
+          VITE_API_URL: ${shared:API_URL}
 ```
 
 ### Shared Variables
 
-Use `${shared:VARIABLE_NAME}` to reference shared variables:
+Define variables once and reuse them across all apps:
 
 ```yaml
 shared:
   variables:
+    DATABASE_HOST: localhost
+    DATABASE_PORT: "5432"
     API_URL: https://api.example.com
 
 apps:
-  frontend:
+  backend:
     environments:
-      development:
+      production:
         variables:
-          VITE_API_URL:
-            value: ${shared:API_URL}
-            comment: Backend API URL
-            # Resolves to: https://api.example.com
+          DATABASE_URL: postgres://${shared:DATABASE_HOST}:${shared:DATABASE_PORT}/mydb
+          # Resolves to: postgres://localhost:5432/mydb
 ```
 
 ### Variable Definition Formats
 
-You can define variables in two ways:
-
-**Format 1: Simple (string value)**
+#### Format 1: Simple (String Value)
 
 ```yaml
 variables:
   NODE_ENV: production
   PORT: "3000"
+  DEBUG: "true"
 ```
 
-**Format 2: Extended (object with value, comment, type)**
+#### Format 2: Extended (Object with Comment)
 
 ```yaml
 variables:
   DATABASE_URL:
     value: postgres://localhost:5432/db
     comment: Database connection string
-    type: string
+    type: string # Optional: for future type validation
 ```
 
-You can mix both formats in the same environment configuration. The `comment` field will be included as a comment annotation in the generated `.env` file. The `type` field is optional and available for future type validation.
+**Generated `.env` file:**
 
-## Monorepo Support
-
-The tool supports monorepo structures by organizing configurations by app:
-
-```yaml
-apps:
-  frontend:
-    environments:
-      development: { ... }
-      production: { ... }
-
-  backend:
-    environments:
-      development: { ... }
-      production: { ... }
-
-  mobile:
-    environments:
-      development: { ... }
-      production: { ... }
+```env
+# Database connection string
+DATABASE_URL=postgres://localhost:5432/db
 ```
 
-### Custom Path Configuration
+You can mix both formats in the same environment configuration.
 
-You can configure custom output paths at the app level or environment level:
+### Path Configuration
 
-**App-level configuration** (applies to all environments):
+Control where `.env` files are generated:
+
+**App-level path** (applies to all environments):
 
 ```yaml
 apps:
   backend:
-    path: apps/backend # Custom output path
+    path: apps/backend
     environments:
-      development: { ... }
       production: { ... }
 ```
 
-**Environment-level configuration** (overrides app-level):
+**Environment-level path** (overrides app-level):
 
 ```yaml
 apps:
   backend:
-    path: apps/backend # Default path
+    path: apps/backend
     environments:
-      development:
+      production:
         variables: { ... }
-        path: apps/backend/config # Override path for this environment
+        path: apps/backend/config # Override for this environment
 ```
 
 **Path priority** (highest to lowest):
@@ -228,54 +221,124 @@ apps:
 3. Auto-detected directory (in `--apply` mode)
 4. Root directory (fallback)
 
-**Filename convention** (automatic based on environment name):
+### Filename Convention
+
+Filenames are automatically determined by environment name:
 
 - `local` → `.env.local`
 - `production` → `.env`
 - Other environments → `.env.{environment}` (e.g., `.env.development`)
 
-## Output
+## 🏗️ Monorepo Support
 
-### Using `--apply` (Recommended for Monorepos)
+### Auto-Detection
 
-When using `--apply`, the tool:
+When using `--apply`, genv automatically detects app directories in common monorepo structures:
 
-- Auto-detects app directories in common monorepo structures:
-  - `packages/{app}/`
-  - `apps/{app}/`
-  - `{app}/` (root level)
-  - `packages/@scope/{app}/` (for scoped packages)
-- Generates `.env.{environment}` files in each app's directory
-- Example: `packages/frontend/.env.development`, `apps/backend/.env.production`
-- Falls back to root directory if app directory not found
+- `packages/{app}/`
+- `apps/{app}/`
+- `{app}/` (root level)
+- `packages/@scope/{app}/` (for scoped packages)
 
-### Using `--all`
+### Example Structure
 
-When using `--all`, the tool generates files using:
+```
+monorepo/
+├── genv.config.yaml
+├── packages/
+│   ├── frontend/
+│   │   └── .env.local          # Generated by genv
+│   └── backend/
+│       └── .env.production     # Generated by genv
+└── apps/
+    └── mobile/
+        └── .env.development     # Generated by genv
+```
 
-- Config-defined `path` if specified
-- Default format: `{app}.{environment}.env` (e.g., `frontend.development.env`) in current directory
+### Configuration Example
 
-### Using `--app` and `--env`
+```yaml
+shared:
+  variables:
+    DATABASE_HOST: localhost
 
-When using `--app` and `--env`, the tool generates:
+apps:
+  frontend:
+    # Auto-detected in packages/frontend/ or apps/frontend/
+    environments:
+      production: { ... }
 
-- Config-defined `path` if specified
-- Default: `.env.{environment}` in current directory (based on environment name)
+  backend:
+    path: apps/backend # Custom path
+    environments:
+      production: { ... }
+```
 
-## Development
+## 📂 Examples
+
+Check out the `examples/` directory for complete examples:
+
+- **`with-monorepo/`** - Full monorepo setup with multiple apps
+- **`with-root/`** - Single app at root level
+- **`with-local-only/`** - Minimal setup with only local environment
+- **`with-init-config/`** - Example of generated config from `--init`
+
+## 🔧 Development
+
+### Build from Source
 
 ```bash
-# Run in development mode
-bun run dev
+# Clone the repository
+git clone https://github.com/jirayusueb/genv.git
+cd genv
+
+# Install dependencies
+bun install
 
 # Build
 bun run build
 
-# Run tests
-bun test
+# Run in development mode
+bun run dev
+
+# Lint
+bun run lint
 ```
 
-## License
+### Project Structure
 
-MIT
+```
+genv/
+├── src/
+│   ├── index.ts      # Entry point
+│   ├── cli.ts        # CLI interface
+│   ├── parser.ts     # YAML parsing and validation
+│   ├── generator.ts  # Env file generation
+│   └── types.ts      # TypeScript types and Zod schemas
+├── examples/         # Example configurations
+├── dist/             # Built output
+└── genv.config.yaml  # Example config
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+MIT © [jirayusueb](https://github.com/jirayusueb)
+
+## 🔗 Links
+
+- **npm**: https://www.npmjs.com/package/@jirayusueb/genv
+- **GitHub**: https://github.com/jirayusueb/genv
+
+---
+
+**Made with ❤️ for monorepo developers**

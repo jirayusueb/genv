@@ -1,6 +1,6 @@
 {
   "name": "@jirayusueb/genv",
-  "version": "0.1.2",
+  "version": "0.1.2-beta.1",
   "description": "Environment variable manager for monorepos with shared variable support",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -37,12 +37,18 @@
   },
   "author": "jirayusueb",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "bun --hot src/index.ts",
     "lint": "biome check src",
     "lint:fix": "biome check --write src",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   },
   "dependencies": {
     "neverthrow": "^8.2.0",
@@ -54,8 +60,10 @@
     "@biomejs/biome": "2.3.4",
     "@types/bun": "latest",
     "@types/yargs": "^17.0.34",
+    "@vitest/coverage-v8": "^2.1.8",
     "tsdown": "^0.16.0",
-    "ultracite": "6.3.0"
+    "ultracite": "6.3.0",
+    "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "typescript": "^5"

@@ -3,20 +3,25 @@ import { z } from "zod";
 const SharedVariablesSchema = z
   .object({
     variables: z
-      .record(z.string(), z.string())
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
       .optional()
       .describe("Shared variables that can be referenced across all apps"),
   })
   .optional()
   .describe("Shared configuration section");
 
-// Variable value can be a string or an object with value, comment, type
+// Variable value can be a string, number, boolean, or an object with value, comment, type
 const VariableValueSchema: z.ZodType<
-  string | { value: string; comment?: string; type?: string }
+  | string
+  | number
+  | boolean
+  | { value: string | number | boolean; comment?: string; type?: string }
 > = z.union([
   z.string(),
+  z.number(),
+  z.boolean(),
   z.object({
-    value: z.string(),
+    value: z.union([z.string(), z.number(), z.boolean()]),
     comment: z
       .string()
       .optional()
@@ -32,16 +37,19 @@ const VariableValueSchema: z.ZodType<
 
 // Support both old format (flat object) and new format (with variables key)
 const AppEnvironmentValueSchema: z.ZodType<
-  | Record<string, string>
+  | Record<string, string | number | boolean>
   | {
       variables: Record<
         string,
-        string | { value: string; comment?: string; type?: string }
+        | string
+        | number
+        | boolean
+        | { value: string | number | boolean; comment?: string; type?: string }
       >;
       path?: string;
     }
 > = z.union([
-  z.record(z.string(), z.string()), // Legacy format: { VAR: "value" }
+  z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])), // Legacy format: { VAR: "value" } or { VAR: 3000 } or { VAR: true }
   z.object({
     variables: z.record(
       z.string().min(1, "Variable name cannot be empty"),

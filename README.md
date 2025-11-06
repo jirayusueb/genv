@@ -94,9 +94,6 @@ shared:
 # Apps in the monorepo
 apps:
   frontend:
-    # Optional: default filename for all environments
-    # filename: .env.local
-
     # Optional: default output path for all environments
     # path: apps/frontend
 
@@ -206,7 +203,7 @@ You can configure custom output paths at the app level or environment level:
 ```yaml
 apps:
   backend:
-    path: apps/backend  # Custom output path
+    path: apps/backend # Custom output path
     environments:
       development: { ... }
       production: { ... }
@@ -217,11 +214,11 @@ apps:
 ```yaml
 apps:
   backend:
-    path: apps/backend  # Default path
+    path: apps/backend # Default path
     environments:
       development:
         variables: { ... }
-        path: apps/backend/config  # Override path for this environment
+        path: apps/backend/config # Override path for this environment
 ```
 
 **Path priority** (highest to lowest):
@@ -256,15 +253,15 @@ When using `--apply`, the tool:
 
 When using `--all`, the tool generates files using:
 
-- Config-defined `filename` and `path` if specified
+- Config-defined `path` if specified
 - Default format: `{app}.{environment}.env` (e.g., `frontend.development.env`) in current directory
 
 ### Using `--app` and `--env`
 
 When using `--app` and `--env`, the tool generates:
 
-- Config-defined `filename` and `path` if specified
-- Default: `.env.{environment}` in current directory
+- Config-defined `path` if specified
+- Default: `.env.{environment}` in current directory (based on environment name)
 
 ## Development
 

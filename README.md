@@ -197,17 +197,16 @@ apps:
       production: { ... }
 ```
 
-### Custom Filename and Path
+### Custom Path Configuration
 
-You can configure custom filenames and output paths at the app level or environment level:
+You can configure custom output paths at the app level or environment level:
 
 **App-level configuration** (applies to all environments):
 
 ```yaml
 apps:
   backend:
-    filename: .env.local # Custom filename for all environments
-    path: apps/backend # Custom output path
+    path: apps/backend  # Custom output path
     environments:
       development: { ... }
       production: { ... }
@@ -218,12 +217,11 @@ apps:
 ```yaml
 apps:
   backend:
-    filename: .env.local # Default filename
+    path: apps/backend  # Default path
     environments:
       development:
         variables: { ... }
-        filename: .env.development # Override filename for this environment
-        path: apps/backend/config # Override path for this environment
+        path: apps/backend/config  # Override path for this environment
 ```
 
 **Path priority** (highest to lowest):
@@ -233,11 +231,11 @@ apps:
 3. Auto-detected directory (in `--apply` mode)
 4. Root directory (fallback)
 
-**Filename priority** (highest to lowest):
+**Filename convention** (automatic based on environment name):
 
-1. Environment-level `filename`
-2. App-level `filename`
-3. `.env.{environment}` (default)
+- `local` → `.env.local`
+- `production` → `.env`
+- Other environments → `.env.{environment}` (e.g., `.env.development`)
 
 ## Output
 

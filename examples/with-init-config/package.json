@@ -8,4 +8,3 @@
     "apply": "genv --apply --config genv.config.yaml"
   }
 }
-

@@ -63,19 +63,19 @@ const VariableValueSchema: z.ZodType<VariableValue> = z.union([
 // Support both old format (flat object) and new format (with variables key)
 const AppEnvironmentValueSchema: z.ZodType<EnvField | EnvFieldExtend> = z.union(
   [
-  z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])), // Legacy format: { VAR: "value" } or { VAR: 3000 } or { VAR: true }
-  z.object({
-    variables: z.record(
-      z.string().min(1, "Variable name cannot be empty"),
-      VariableValueSchema
-    ),
-    path: z
-      .string()
-      .optional()
+    z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])), // Legacy format: { VAR: "value" } or { VAR: 3000 } or { VAR: true }
+    z.object({
+      variables: z.record(
+        z.string().min(1, "Variable name cannot be empty"),
+        VariableValueSchema
+      ),
+      path: z
+        .string()
+        .optional()
         .describe(
           "Custom output path for the env file (e.g., '/apps/backend')"
         ),
-  }),
+    }),
   ]
 );
 

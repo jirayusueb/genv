@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock the CLI module before importing index
+// Create mock function using vi.hoisted to make it accessible in both mock and tests
+const { mockRunCLI } = await vi.hoisted(() => ({
+  mockRunCLI: vi.fn(),
+}));
+
+// Mock the CLI module
 vi.mock("./cli", () => ({
-  runCLI: vi.fn(),
+  runCLI: mockRunCLI,
 }));
 
 describe("index.ts main entry point", () => {
@@ -28,11 +33,9 @@ describe("index.ts main entry point", () => {
     // Mock console.error
     console.error = mockConsoleError;
 
-    // Clear module cache to allow fresh imports
-    vi.resetModules();
-
     // Clear all mocks
     vi.clearAllMocks();
+    mockRunCLI.mockClear();
   });
 
   afterEach(() => {
@@ -44,15 +47,13 @@ describe("index.ts main entry point", () => {
   });
 
   it("should call runCLI with process.argv.slice(2) and exit with returned code", async () => {
-    // Dynamic import to get fresh module
-    const { runCLI } = await import("./cli");
-    const mockRunCLI = vi.mocked(runCLI);
-
     // Set up mocks before importing index
     mockRunCLI.mockResolvedValueOnce(0);
     process.argv = ["node", "index.js", "--init"];
 
     // Import index module - this will execute main()
+    // Need to clear the module cache to re-import
+    vi.resetModules();
     await import("./index");
 
     // Wait for async operations to complete
@@ -64,15 +65,13 @@ describe("index.ts main entry point", () => {
   });
 
   it("should handle errors in runCLI and exit with code 1", async () => {
-    // Dynamic import to get fresh module
-    const { runCLI } = await import("./cli");
-    const mockRunCLI = vi.mocked(runCLI);
-
     const testError = new Error("Test error");
     mockRunCLI.mockRejectedValueOnce(testError);
     process.argv = ["node", "index.js", "--test"];
 
     // Import index module - this will execute main() and trigger error
+    // Need to clear the module cache to re-import
+    vi.resetModules();
     await import("./index");
 
     // Wait for async operations to complete
@@ -87,12 +86,11 @@ describe("index.ts main entry point", () => {
   });
 
   it("should pass all command line arguments except first two to runCLI", async () => {
-    const { runCLI } = await import("./cli");
-    const mockRunCLI = vi.mocked(runCLI);
-
     mockRunCLI.mockResolvedValueOnce(0);
     process.argv = ["node", "index.js", "--app", "backend", "--env", "local"];
 
+    // Need to clear the module cache to re-import
+    vi.resetModules();
     await import("./index");
 
     // Wait for async operations
@@ -108,12 +106,11 @@ describe("index.ts main entry point", () => {
   });
 
   it("should handle empty command line arguments", async () => {
-    const { runCLI } = await import("./cli");
-    const mockRunCLI = vi.mocked(runCLI);
-
     mockRunCLI.mockResolvedValueOnce(1);
     process.argv = ["node", "index.js"];
 
+    // Need to clear the module cache to re-import
+    vi.resetModules();
     await import("./index");
 
     // Wait for async operations

@@ -1,3 +1,5 @@
+import type { PathLike } from "node:fs";
+import * as fsPromises from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   determineFilename,
@@ -11,8 +13,6 @@ import {
 vi.mock("node:fs/promises", () => ({
   access: vi.fn(),
 }));
-
-import { access } from "node:fs/promises";
 
 describe("path.util", () => {
   describe("determineFilename", () => {
@@ -234,23 +234,23 @@ describe("path.util", () => {
     });
 
     it("should return true when path exists", async () => {
-      (access as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      vi.mocked(fsPromises.access).mockResolvedValue(undefined);
       const result = await pathExists("/some/path");
       expect(result).toBe(true);
-      expect(access).toHaveBeenCalledWith("/some/path");
+      expect(vi.mocked(fsPromises.access)).toHaveBeenCalledWith("/some/path");
     });
 
     it("should return false when path does not exist", async () => {
-      (access as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error("ENOENT")
-      );
+      vi.mocked(fsPromises.access).mockRejectedValue(new Error("ENOENT"));
       const result = await pathExists("/nonexistent/path");
       expect(result).toBe(false);
-      expect(access).toHaveBeenCalledWith("/nonexistent/path");
+      expect(vi.mocked(fsPromises.access)).toHaveBeenCalledWith(
+        "/nonexistent/path"
+      );
     });
 
     it("should return false for any error", async () => {
-      (access as ReturnType<typeof vi.fn>).mockRejectedValue(
+      vi.mocked(fsPromises.access).mockRejectedValue(
         new Error("Permission denied")
       );
       const result = await pathExists("/restricted/path");
@@ -268,100 +268,84 @@ describe("path.util", () => {
     });
 
     it("should find app in packages directory", async () => {
-      (access as ReturnType<typeof vi.fn>).mockImplementation(
-        (path: string) => {
-          if (path === "/project/packages/backend") {
-            return Promise.resolve(undefined);
-          }
-          return Promise.reject(new Error("not found"));
+      vi.mocked(fsPromises.access).mockImplementation((path: PathLike) => {
+        if (path === "/project/packages/backend") {
+          return Promise.resolve(undefined);
         }
-      );
+        return Promise.reject(new Error("not found"));
+      });
 
       const result = await findAppDirectory("backend", "/project");
       expect(result).toBe("/project/packages/backend");
     });
 
     it("should find app in apps directory", async () => {
-      (access as ReturnType<typeof vi.fn>).mockImplementation(
-        (path: string) => {
-          if (path === "/project/apps/frontend") {
-            return Promise.resolve(undefined);
-          }
-          return Promise.reject(new Error("not found"));
+      vi.mocked(fsPromises.access).mockImplementation((path: PathLike) => {
+        if (path === "/project/apps/frontend") {
+          return Promise.resolve(undefined);
         }
-      );
+        return Promise.reject(new Error("not found"));
+      });
 
       const result = await findAppDirectory("frontend", "/project");
       expect(result).toBe("/project/apps/frontend");
     });
 
     it("should find app in root directory", async () => {
-      (access as ReturnType<typeof vi.fn>).mockImplementation(
-        (path: string) => {
-          if (path === "/project/standalone") {
-            return Promise.resolve(undefined);
-          }
-          return Promise.reject(new Error("not found"));
+      vi.mocked(fsPromises.access).mockImplementation((path: PathLike) => {
+        if (path === "/project/standalone") {
+          return Promise.resolve(undefined);
         }
-      );
+        return Promise.reject(new Error("not found"));
+      });
 
       const result = await findAppDirectory("standalone", "/project");
       expect(result).toBe("/project/standalone");
     });
 
     it("should return null when app is not found", async () => {
-      (access as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error("not found")
-      );
+      vi.mocked(fsPromises.access).mockRejectedValue(new Error("not found"));
 
       const result = await findAppDirectory("nonexistent", "/project");
       expect(result).toBeNull();
     });
 
     it("should handle scoped packages (e.g., @org/app-name)", async () => {
-      (access as ReturnType<typeof vi.fn>).mockImplementation(
-        (path: string) => {
-          // For scoped packages, standard paths are checked first
-          // Then scoped paths are checked (which are the same paths since scope includes @)
-          // This test verifies that scoped packages can be found in packages directory
-          if (path === "/project/packages/@org/app-name") {
-            return Promise.resolve(undefined);
-          }
-          return Promise.reject(new Error("not found"));
+      vi.mocked(fsPromises.access).mockImplementation((path: PathLike) => {
+        // For scoped packages, standard paths are checked first
+        // Then scoped paths are checked (which are the same paths since scope includes @)
+        // This test verifies that scoped packages can be found in packages directory
+        if (path === "/project/packages/@org/app-name") {
+          return Promise.resolve(undefined);
         }
-      );
+        return Promise.reject(new Error("not found"));
+      });
 
       const result = await findAppDirectory("@org/app-name", "/project");
       expect(result).toBe("/project/packages/@org/app-name");
     });
 
     it("should check scoped package paths when app name starts with @", async () => {
-      (access as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error("not found")
-      );
+      vi.mocked(fsPromises.access).mockRejectedValue(new Error("not found"));
 
       const result = await findAppDirectory("@scope/name", "/project");
       expect(result).toBeNull();
     });
 
     it("should not check scoped paths for invalid scoped package names", async () => {
-      (access as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error("not found")
-      );
+      vi.mocked(fsPromises.access).mockRejectedValue(new Error("not found"));
 
       const result = await findAppDirectory("@invalid", "/project");
       expect(result).toBeNull();
     });
 
     it("should prioritize packages over apps directory", async () => {
-      (access as ReturnType<typeof vi.fn>).mockImplementation(
-        (path: string) => {
-          if (path === "/project/packages/myapp") {
-            return Promise.resolve(undefined);
-          }
-          return Promise.reject(new Error("not found"));
+      vi.mocked(fsPromises.access).mockImplementation((path: PathLike) => {
+        if (path === "/project/packages/myapp") {
+          return Promise.resolve(undefined);
         }
-      );
+        return Promise.reject(new Error("not found"));
+      });
 
       const result = await findAppDirectory("myapp", "/project");
       expect(result).toBe("/project/packages/myapp");

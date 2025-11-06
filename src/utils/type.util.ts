@@ -13,6 +13,5 @@ export function isBoolean(value: unknown): value is boolean {
 export function isEnvFieldExtend(
   env: import("@/types").AppEnvironmentValue
 ): env is import("@/types").EnvFieldExtend {
-  return "variables" in env && typeof env === "object";
+  return env !== null && typeof env === "object" && "variables" in env;
 }
-

@@ -1,0 +1,75 @@
+export const DEFAULT_CONFIG = `# genv Configuration File
+# This file defines environment variables for your monorepo applications
+
+# Shared variables that can be referenced across all apps using \${shared:VARIABLE_NAME}
+shared:
+  variables:
+    # Example shared variables
+    DATABASE_HOST: localhost
+    DATABASE_PORT: "5432"
+    API_URL: https://api.example.com
+    REDIS_HOST: localhost
+    REDIS_PORT: "6379"
+
+# Apps in the monorepo
+apps:
+  # Example app configuration
+  frontend:
+    # Optional: default output path for all environments (e.g., '/apps/frontend' or 'apps/frontend')
+    # path: apps/frontend
+
+    environments:
+      local:
+        # Variables for local environment
+        # Generates: .env.local
+        NODE_ENV: development
+        VITE_API_URL: http://localhost:3000
+        VITE_APP_NAME: My App Local
+        VITE_DEBUG: "true"
+
+      development:
+        # Variables for development environment
+        # Generates: .env.development
+        NODE_ENV: development
+        VITE_API_URL: \${shared:API_URL}
+        VITE_APP_NAME: My App Dev
+        VITE_DEBUG: "true"
+
+      production:
+        # Variables for production environment
+        # Generates: .env
+        NODE_ENV: production
+        VITE_API_URL: \${shared:API_URL}
+        VITE_APP_NAME: My App
+        VITE_DEBUG: "false"
+
+  # Another example app
+  backend:
+    # Optional app-level configuration
+    # path: apps/backend
+
+    environments:
+      local:
+        # Generates: .env.local
+        NODE_ENV: development
+        DATABASE_URL: postgres://user:pass@localhost:5432/mydb_local
+        REDIS_URL: redis://localhost:6379
+        API_PORT: "3000"
+        LOG_LEVEL: debug
+
+      development:
+        # Generates: .env.development
+        NODE_ENV: development
+        DATABASE_URL: postgres://user:pass@\${shared:DATABASE_HOST}:\${shared:DATABASE_PORT}/mydb_dev
+        REDIS_URL: redis://\${shared:REDIS_HOST}:\${shared:REDIS_PORT}
+        API_PORT: "3000"
+        LOG_LEVEL: debug
+
+      production:
+        # Generates: .env
+        NODE_ENV: production
+        DATABASE_URL: postgres://user:pass@\${shared:DATABASE_HOST}:\${shared:DATABASE_PORT}/mydb_prod
+        REDIS_URL: redis://\${shared:REDIS_HOST}:\${shared:REDIS_PORT}
+        API_PORT: "3000"
+        LOG_LEVEL: warn
+`;

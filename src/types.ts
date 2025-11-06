@@ -1,5 +1,35 @@
 import { z } from "zod";
 
+export type RawValue = string | number | boolean;
+
+export type EnvField = Record<string, RawValue>;
+
+export type VariableValue =
+  | RawValue
+  | { value: RawValue; comment?: string; type?: string };
+
+export type VariablesRecord = Record<string, VariableValue>;
+
+export type EnvFieldExtend = {
+  variables: VariablesRecord;
+  path?: string;
+};
+
+export type SharedVariables = {
+  variables?: EnvField;
+};
+
+export type AppEnvironmentValue = EnvField | EnvFieldExtend;
+
+export type EnvironmentsRecord = Record<string, AppEnvironmentValue>;
+
+export type AppConfig = {
+  path?: string;
+  environments: EnvironmentsRecord;
+};
+
+export type AppsRecord = Record<string, AppConfig>;
+
 const SharedVariablesSchema = z
   .object({
     variables: z
@@ -11,12 +41,7 @@ const SharedVariablesSchema = z
   .describe("Shared configuration section");
 
 // Variable value can be a string, number, boolean, or an object with value, comment, type
-const VariableValueSchema: z.ZodType<
-  | string
-  | number
-  | boolean
-  | { value: string | number | boolean; comment?: string; type?: string }
-> = z.union([
+const VariableValueSchema: z.ZodType<VariableValue> = z.union([
   z.string(),
   z.number(),
   z.boolean(),
@@ -36,31 +61,23 @@ const VariableValueSchema: z.ZodType<
 ]);
 
 // Support both old format (flat object) and new format (with variables key)
-const AppEnvironmentValueSchema: z.ZodType<
-  | Record<string, string | number | boolean>
-  | {
-      variables: Record<
-        string,
-        | string
-        | number
-        | boolean
-        | { value: string | number | boolean; comment?: string; type?: string }
-      >;
-      path?: string;
-    }
-> = z.union([
-  z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])), // Legacy format: { VAR: "value" } or { VAR: 3000 } or { VAR: true }
-  z.object({
-    variables: z.record(
-      z.string().min(1, "Variable name cannot be empty"),
-      VariableValueSchema
-    ),
-    path: z
-      .string()
-      .optional()
-      .describe("Custom output path for the env file (e.g., '/apps/backend')"),
-  }),
-]);
+const AppEnvironmentValueSchema: z.ZodType<EnvField | EnvFieldExtend> = z.union(
+  [
+    z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])), // Legacy format: { VAR: "value" } or { VAR: 3000 } or { VAR: true }
+    z.object({
+      variables: z.record(
+        z.string().min(1, "Variable name cannot be empty"),
+        VariableValueSchema
+      ),
+      path: z
+        .string()
+        .optional()
+        .describe(
+          "Custom output path for the env file (e.g., '/apps/backend')"
+        ),
+    }),
+  ]
+);
 
 const AppEnvironmentSchema = z
   .record(

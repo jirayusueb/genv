@@ -4,7 +4,8 @@
   "linter": {
     "rules": {
       "suspicious": {
-        "noTemplateCurlyInString": "off"
+        "noTemplateCurlyInString": "off",
+        "noDuplicateAtImportRules": "off"
       },
       "style": {
         "useThrowOnlyError": "off"

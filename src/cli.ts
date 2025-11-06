@@ -1,105 +1,32 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import yargs from "yargs";
+import { DEFAULT_CONFIG } from "@/constants/config.constant";
 import { generateAllEnvFiles, generateEnvFile } from "@/generator";
+import type { EnvConfig } from "@/models/env-config.model";
 import { parseConfig } from "@/parser";
-import type { EnvConfig } from "@/types";
+import type { AppEnvironmentValue } from "@/types";
+import {
+  determineOutputPath,
+  findAppDirectory,
+  pathExists,
+} from "@/utils/path.util";
+import { isEnvFieldExtend } from "@/utils/type.util";
 
-// TODO: Improve type safety - Consider extracting EnvConfigType to types.ts
-// This type duplicates logic from types.ts and could be unified for better maintainability.
-type EnvConfigType =
-  | Record<string, string | number | boolean>
-  | {
-      variables: Record<
-        string,
-        | string
-        | number
-        | boolean
-        | { value: string | number | boolean; comment?: string; type?: string }
-      >;
-      path?: string;
-    };
-
-function getEnvironmentConfig(env: EnvConfigType): { path?: string } {
-  if ("path" in env && typeof env === "object") {
-    const pathValue = env.path;
-    // TODO: Edge case - Non-string path values (line 25)
-    // The path should always be a string according to the type, but we defensively check
-    // because EnvConfigType allows number | boolean in the record values.
-    // Consider if this type narrowing is necessary or if the type system can be improved.
+function getEnvironmentConfig(env: AppEnvironmentValue): { path?: string } {
+  // Check if it's the new format (EnvFieldExtend) which has a path property
+  // The Zod schema validates path as z.string().optional(), so it's guaranteed to be a string if present
+  if (isEnvFieldExtend(env)) {
+    // Type assertion is safe here because:
+    // 1. The type guard narrows to EnvFieldExtend
+    // 2. EnvFieldExtend.path is defined as string | undefined
+    // 3. Zod schema validates path as z.string().optional()
     return {
-      path: typeof pathValue === "string" ? pathValue : undefined,
+      path: env.path as string | undefined,
     };
   }
+
   return {};
-}
-
-// TODO: Refactor - Extract to shared utility module
-// This function duplicates determineFilename from generator.ts.
-// Consider creating a shared utils module to avoid code duplication.
-function determineFilename(envName: string): string {
-  // Special handling for environment names
-  if (envName === "local") {
-    return ".env.local";
-  }
-  if (envName === "production") {
-    return ".env";
-  }
-  return `.env.${envName}`;
-}
-
-type AppConfig = { path?: string };
-
-type PathOptions = {
-  appName: string;
-  envName: string;
-  app: AppConfig;
-  envConfig: { path?: string };
-  autoDetectedDir: string | null;
-  rootDir: string;
-};
-
-// TODO: Refactor - Extract path resolution logic to shared utility
-// This function has repetitive path resolution logic (startsWith("/") check and resolve).
-// Consider creating a helper function like `resolvePath(path: string, rootDir: string): string`
-// to reduce duplication and improve maintainability.
-function determineOutputPath(options: PathOptions): string {
-  // Determine filename based on environment name
-  const filename = determineFilename(options.envName);
-
-  // Determine path priority:
-  // 1. env-level path (highest)
-  // 2. app-level path
-  // 3. auto-detected directory
-  // 4. rootDir fallback (lowest)
-  if (options.envConfig.path) {
-    const path = options.envConfig.path.startsWith("/")
-      ? options.envConfig.path
-      : resolve(options.rootDir, options.envConfig.path);
-    return join(path, filename);
-  }
-
-  if (options.app.path) {
-    const path = options.app.path.startsWith("/")
-      ? options.app.path
-      : resolve(options.rootDir, options.app.path);
-    return join(path, filename);
-  }
-
-  if (options.autoDetectedDir) {
-    return join(options.autoDetectedDir, filename);
-  }
-
-  return join(options.rootDir, `${options.appName}.${options.envName}.env`);
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function handleInit(configPath: string): Promise<number> {
@@ -111,84 +38,8 @@ async function handleInit(configPath: string): Promise<number> {
     return 1;
   }
 
-  const defaultConfig = `# genv Configuration File
-# This file defines environment variables for your monorepo applications
-
-# Shared variables that can be referenced across all apps using \${shared:VARIABLE_NAME}
-shared:
-  variables:
-    # Example shared variables
-    DATABASE_HOST: localhost
-    DATABASE_PORT: "5432"
-    API_URL: https://api.example.com
-    REDIS_HOST: localhost
-    REDIS_PORT: "6379"
-
-# Apps in the monorepo
-apps:
-  # Example app configuration
-  frontend:
-    # Optional: default output path for all environments (e.g., '/apps/frontend' or 'apps/frontend')
-    # path: apps/frontend
-
-    environments:
-      local:
-        # Variables for local environment
-        # Generates: .env.local
-        NODE_ENV: development
-        VITE_API_URL: http://localhost:3000
-        VITE_APP_NAME: My App Local
-        VITE_DEBUG: "true"
-
-      development:
-        # Variables for development environment
-        # Generates: .env.development
-        NODE_ENV: development
-        VITE_API_URL: \${shared:API_URL}
-        VITE_APP_NAME: My App Dev
-        VITE_DEBUG: "true"
-
-      production:
-        # Variables for production environment
-        # Generates: .env
-        NODE_ENV: production
-        VITE_API_URL: \${shared:API_URL}
-        VITE_APP_NAME: My App
-        VITE_DEBUG: "false"
-
-  # Another example app
-  backend:
-    # Optional app-level configuration
-    # path: apps/backend
-
-    environments:
-      local:
-        # Generates: .env.local
-        NODE_ENV: development
-        DATABASE_URL: postgres://user:pass@localhost:5432/mydb_local
-        REDIS_URL: redis://localhost:6379
-        API_PORT: "3000"
-        LOG_LEVEL: debug
-
-      development:
-        # Generates: .env.development
-        NODE_ENV: development
-        DATABASE_URL: postgres://user:pass@\${shared:DATABASE_HOST}:\${shared:DATABASE_PORT}/mydb_dev
-        REDIS_URL: redis://\${shared:REDIS_HOST}:\${shared:REDIS_PORT}
-        API_PORT: "3000"
-        LOG_LEVEL: debug
-
-      production:
-        # Generates: .env
-        NODE_ENV: production
-        DATABASE_URL: postgres://user:pass@\${shared:DATABASE_HOST}:\${shared:DATABASE_PORT}/mydb_prod
-        REDIS_URL: redis://\${shared:REDIS_HOST}:\${shared:REDIS_PORT}
-        API_PORT: "3000"
-        LOG_LEVEL: warn
-`;
-
   try {
-    await writeFile(configPath, defaultConfig, "utf-8");
+    await writeFile(configPath, DEFAULT_CONFIG, "utf-8");
     console.log(`✓ Created config file: ${configPath}`);
     console.log(
       "\nYou can now edit this file to configure your environment variables."
@@ -206,51 +57,6 @@ apps:
   }
 }
 
-// TODO: Performance - Consider parallel path checking
-// Currently checks paths sequentially. For monorepos with many apps, parallel checking
-// could improve performance. Also consider caching results to avoid repeated filesystem access.
-// TODO: Refactor - Extract magic strings to constants
-// The directory names "packages", "apps" are hardcoded. Consider extracting them to
-// constants like `const MONOREPO_DIRS = ["packages", "apps"] as const` for better
-// maintainability and configurability.
-async function findAppDirectory(
-  appName: string,
-  rootDir: string
-): Promise<string | null> {
-  const possiblePaths = [
-    join(rootDir, "packages", appName),
-    join(rootDir, "apps", appName),
-    join(rootDir, appName),
-  ];
-
-  // Check standard paths first
-  for (const path of possiblePaths) {
-    if (await pathExists(path)) {
-      return path;
-    }
-  }
-
-  // Check for scoped packages (e.g., @org/app-name)
-  if (appName.startsWith("@")) {
-    const [scope, name] = appName.split("/");
-    if (scope && name) {
-      const scopedPaths = [
-        join(rootDir, "packages", scope, name),
-        join(rootDir, "apps", scope, name),
-        join(rootDir, scope, name),
-      ];
-
-      for (const path of scopedPaths) {
-        if (await pathExists(path)) {
-          return path;
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
 // TODO: Refactor - Extract file writing logic to shared utility
 // The file writing pattern (mkdir + writeFile + console.log) is duplicated in handleApply,
 // handleAll, and handleSingle. Consider creating a helper function like
@@ -261,12 +67,21 @@ async function handleApply(
 ): Promise<number> {
   let generatedCount = 0;
 
-  for (const [appName, app] of Object.entries(config.apps)) {
+  for (const appName of config.getAppNames()) {
+    const app = config.getApp(appName);
+    if (!app) {
+      continue;
+    }
+
     // Try to find app directory in monorepo structure
     const appDir = await findAppDirectory(appName, rootDir);
 
-    for (const [envName, env] of Object.entries(app.environments)) {
-      const envConfig = getEnvironmentConfig(env as EnvConfigType);
+    for (const envName of config.getEnvironmentNames(appName)) {
+      const env = config.getEnvironment(appName, envName);
+      if (!env) {
+        continue;
+      }
+      const envConfig = getEnvironmentConfig(env);
       const outputPath = determineOutputPath({
         appName,
         envName,
@@ -442,9 +257,9 @@ async function handleSingle(
   envName: string
 ): Promise<number> {
   const rootDir = process.cwd();
-  const app = config.apps[appName];
-  const env = app?.environments[envName];
-  const envConfig = env ? getEnvironmentConfig(env as EnvConfigType) : {};
+  const app = config.getApp(appName);
+  const env = config.getEnvironment(appName, envName);
+  const envConfig = env ? getEnvironmentConfig(env) : {};
 
   const outputPath = determineOutputPath({
     appName,

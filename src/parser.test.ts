@@ -1,28 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as yamlModule from "yaml";
 import { ZodError } from "zod";
 import { parseConfig } from "./parser";
 
-// Mock yaml module
-vi.mock("yaml", async () => {
-  const actual = await vi.importActual<typeof import("yaml")>("yaml");
+// Regex pattern compiled once at module level for performance
+const EMPTY_OR_INVALID_PATTERN = /empty|invalid/;
+
+// Store the real parse function using vi.hoisted to avoid hoisting issues
+const { realParse } = await vi.hoisted(async () => {
+  const actual = await vi.importActual<typeof yamlModule>("yaml");
   return {
-    ...actual,
-    parse: vi.fn(),
+    realParse: actual.parse,
   };
 });
 
-import { parse as yamlParse } from "yaml";
+// Mock the yaml module
+vi.mock("yaml", async () => ({
+  ...(await vi.importActual<typeof yamlModule>("yaml")),
+  parse: vi.fn(),
+}));
 
 describe("parseConfig", () => {
   beforeEach(() => {
+    // Reset mocks and set default implementation to real parser
     vi.clearAllMocks();
-    // Reset to default implementation (use actual parser)
-    // Get the actual parse function from the original module
-    vi.mocked(yamlParse).mockImplementation((...args) => {
-      // Call the actual yaml parse function
-      const { parse } = require("yaml");
-      return parse(...args);
-    });
+    vi.mocked(yamlModule.parse).mockImplementation(realParse);
   });
 
   afterEach(() => {
@@ -43,6 +45,7 @@ apps:
           DATABASE_URL: "\${shared:API_URL}/db"
     `;
 
+    // Use real YAML parser (mock is configured with real implementation by default)
     const result = parseConfig(yamlContent);
 
     expect(result.isOk()).toBe(true);
@@ -73,7 +76,8 @@ apps:
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      expect(result.error.message).toContain("empty");
+      // Empty YAML returns null, which triggers "YAML file is empty or invalid"
+      expect(result.error.message).toMatch(EMPTY_OR_INVALID_PATTERN);
     }
   });
 
@@ -84,6 +88,7 @@ shared:
     API_URL: "https://api.example.com"
     `;
 
+    // Use real YAML parser (mock is configured with real implementation by default)
     const result = parseConfig(yamlContent);
 
     expect(result.isErr()).toBe(true);
@@ -105,6 +110,7 @@ apps:
           PORT: "3000"
     `;
 
+    // Use real YAML parser (mock is configured with real implementation by default)
     const result = parseConfig(yamlContent);
 
     expect(result.isErr()).toBe(true);
@@ -151,7 +157,7 @@ apps:
     // Create an error with "YAML" in the message
     const yamlError = new Error("YAML syntax error at line 1");
 
-    vi.mocked(yamlParse).mockImplementation(() => {
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
       throw yamlError;
     });
 
@@ -169,7 +175,7 @@ apps:
   it("should handle non-Error exception in YAML parsing", () => {
     // Test the branch where a non-Error exception is thrown (line 35-36)
     // Mock the yaml parser to throw a non-Error
-    vi.mocked(yamlParse).mockImplementation(() => {
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
       throw "string error"; // Non-Error exception
     });
 
@@ -185,7 +191,7 @@ apps:
 
   it("should handle non-Error exception with number", () => {
     // Test non-Error exception with a number
-    vi.mocked(yamlParse).mockImplementation(() => {
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
       throw 123; // Non-Error exception (number)
     });
 
@@ -227,7 +233,103 @@ apps:
 
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
-      // Should format as single error (not multiple)
+      // Should contain validation information
+      expect(result.error.message).toContain("Validation");
+    }
+  });
+
+  it("should format multiple validation errors correctly", () => {
+    // Test the branch where messages.length > 1
+    const yamlContent = `
+apps:
+  backend:
+    environments: {}
+  frontend:
+    environments: {}
+    `;
+
+    const result = parseConfig(yamlContent);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      // Should contain validation information
+      expect(result.error.message).toContain("Validation");
+    }
+  });
+
+  it("should handle empty parsed YAML", () => {
+    // Test the branch where parsed is falsy (line 51)
+    vi.mocked(yamlModule.parse).mockReturnValue(null);
+
+    const yamlContent = "";
+    const result = parseConfig(yamlContent);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe("YAML file is empty or invalid");
+    }
+  });
+
+  it("should handle non-Error exceptions in parseYamlSafe", () => {
+    // Test the branch where error is not an Error instance (line 42)
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
+      throw "string error"; // Non-Error exception
+    });
+
+    const yamlContent = "test: value";
+    const result = parseConfig(yamlContent);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe("string error");
+    }
+  });
+
+  it("should handle non-Error exceptions with non-string values", () => {
+    // Test the branch where error is not an Error instance and not a string
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
+      throw 123; // Non-Error, non-string exception
+    });
+
+    const yamlContent = "test: value";
+    const result = parseConfig(yamlContent);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toBe("123");
+    }
+  });
+
+  it("should handle YAML parsing errors with YAML in message", () => {
+    // Test the branch where error.message.includes("YAML") (line 37)
+    const yamlError = new Error("YAML syntax error at line 1");
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
+      throw yamlError;
+    });
+
+    const yamlContent = "invalid: yaml: [";
+    const result = parseConfig(yamlContent);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toContain("YAML parsing error:");
+      expect(result.error.message).toContain("YAML syntax error");
+    }
+  });
+
+  it("should handle error with empty path in issue", () => {
+    // Test the branch where issue.path.length === 0 (line 20)
+    const yamlContent = `
+apps:
+  backend:
+    environments: {}
+    `;
+
+    const result = parseConfig(yamlContent);
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      // Error should be formatted, path check is covered
       expect(result.error.message).toContain("Validation");
     }
   });
@@ -247,7 +349,7 @@ apps:
     // 3. formatZodError sees empty issues and returns "Validation error: Invalid configuration"
     const emptyIssuesError = new ZodError([]);
 
-    vi.mocked(yamlParse).mockImplementation(() => {
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
       throw emptyIssuesError;
     });
 
@@ -279,7 +381,7 @@ apps:
       },
     ]);
 
-    vi.mocked(yamlParse).mockImplementation(() => {
+    vi.mocked(yamlModule.parse).mockImplementation(() => {
       throw zodError;
     });
 

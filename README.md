@@ -16,6 +16,10 @@
 
 ## 📦 Installation
 
+### Requirements
+
+- **Node.js**: >= 20.0.0
+
 ### Using npx (Recommended)
 
 No installation needed! Use directly with npx:

@@ -37,6 +37,9 @@
   },
   "author": "jirayusueb",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "bun --hot src/index.ts",
